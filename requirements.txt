@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+requests
+numpy
+sentence-transformers
+faiss-cpu
+pandas
+scikit-learn
+chromadb
+python-multipart
+jinja2
+flask
+flask-cors
+psutil

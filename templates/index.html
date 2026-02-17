@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Recommendation System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2c3e50;
+        }
+        .form-subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            font-weight: bold;
+            position: relative;
+        }
+        .step.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .step.completed {
+            background-color: #28a745;
+            color: white;
+        }
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            width: 20px;
+            height: 2px;
+            background-color: #e9ecef;
+            transform: translateY(-50%);
+        }
+        .step.completed:not(:last-child)::after {
+            background-color: #28a745;
+        }
+        .form-step {
+            display: none;
+        }
+        .form-step.active {
+            display: block;
+        }
+        .radio-group {
+            margin-bottom: 1.5rem;
+        }
+        .radio-option {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .radio-option:hover {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+        .radio-option.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .radio-option input[type="radio"],
+        .radio-option input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .radio-option label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .price-range-inputs {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .price-range-inputs .form-control {
+            flex: 1;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+        .btn-group .btn {
+            flex: 1;
+        }
+        .property-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        .property-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+        .property-details {
+            padding: 1.5rem;
+        }
+        .property-price {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .property-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .feature {
+            background: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .feature-yes {
+            background: #d4edda;
+            color: #155724;
+        }
+        .feature-no {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .property-description {
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+        .property-amenities {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+        .amenity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .amenity-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .amenity-icon {
+            width: 20px;
+            height: 20px;
+        }
+        #recommendations {
+            display: none;
+        }
+        #recommendations.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 class="form-title">Find Your Perfect Property</h2>
+            <p class="form-subtitle">Let's find the perfect property for you in 3 simple steps</p>
+
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step active" id="step1-indicator">1</div>
+                <div class="step" id="step2-indicator">2</div>
+                <div class="step" id="step3-indicator">3</div>
+                <div class="step" id="step4-indicator">4</div>
+            </div>
+
+            <form id="propertyForm">
+                <!-- Step 1: Property Type -->
+                <div class="form-step active" id="step1">
+                    <h4 class="mb-3">What type of property are you looking for?</h4>
+                    <div class="radio-group">
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Villa')">
+                            <input type="checkbox" name="propertyType" value="Villa" id="villa">
+                            <label for="villa">Villa</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Flat')">
+                            <input type="checkbox" name="propertyType" value="Flat" id="flat">
+                            <label for="flat">Flat</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'House')">
+                            <input type="checkbox" name="propertyType" value="House" id="house">
+                            <label for="house">House</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Apartment')">
+                            <input type="checkbox" name="propertyType" value="Apartment" id="apartment">
+                            <label for="apartment">Apartment</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Shop')">
+                            <input type="checkbox" name="propertyType" value="Shop" id="shop">
+                            <label for="shop">Shop</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Showrooms')">
+                            <input type="checkbox" name="propertyType" value="Showrooms" id="showrooms">
+                            <label for="showrooms">Showrooms</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Girls PG')">
+                            <input type="checkbox" name="propertyType" value="Girls PG" id="girls-pg">
+                            <label for="girls-pg">Girls PG</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Boys PG')">
+                            <input type="checkbox" name="propertyType" value="Boys PG" id="boys-pg">
+                            <label for="boys-pg">Boys PG</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Working Womens Hostel')">
+                            <input type="checkbox" name="propertyType" value="Working Womens Hostel" id="working-womens-hostel">
+                            <label for="working-womens-hostel">Working Women's Hostel</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Girls Hostel')">
+                            <input type="checkbox" name="propertyType" value="Girls Hostel" id="girls-hostel">
+                            <label for="girls-hostel">Girls Hostel</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Boys Hostel')">
+                            <input type="checkbox" name="propertyType" value="Boys Hostel" id="boys-hostel">
+                            <label for="boys-hostel">Boys Hostel</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', 'Co-Working')">
+                            <input type="checkbox" name="propertyType" value="Co-Working" id="co-working">
+                            <label for="co-working">Co-Working Space</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', '')">
+                            <input type="checkbox" name="propertyType" value="" id="any">
+                            <label for="any">Any Type</label>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" disabled>Previous</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Price Range -->
+                <div class="form-step" id="step2">
+                    <h4 class="mb-3">What's your price range?</h4>
+                    <div class="radio-group">
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('0-5000')">
+                            <input type="checkbox" name="priceRange" value="0-5000" id="range1">
+                            <label for="range1">Under ₹5,000</label>
+                        </div>
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('5000-10000')">
+                            <input type="checkbox" name="priceRange" value="5000-10000" id="range2">
+                            <label for="range2">₹5,000 - ₹10,000</label>
+                        </div>
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('10000-25000')">
+                            <input type="checkbox" name="priceRange" value="10000-25000" id="range3">
+                            <label for="range3">₹10,000 - ₹25,000</label>
+                        </div>
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('25000-50000')">
+                            <input type="checkbox" name="priceRange" value="25000-50000" id="range4">
+                            <label for="range4">₹25,000 - ₹50,000</label>
+                        </div>
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('50000+')">
+                            <input type="checkbox" name="priceRange" value="50000+" id="range5">
+                            <label for="range5">Above ₹50,000</label>
+                        </div>
+                        <div class="radio-option" onclick="selectCustomPrice()">
+                            <input type="checkbox" name="priceRange" value="custom" id="custom">
+                            <label for="custom">Custom Range</label>
+                        </div>
+                    </div>
+
+                    <!-- Custom Price Range Inputs (hidden by default) -->
+                    <div id="customPriceInputs" style="display: none;">
+                        <div class="price-range-inputs">
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" class="form-control" id="minPrice" placeholder="Min Price">
+                            </div>
+                            <span>to</span>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" class="form-control" id="maxPrice" placeholder="Max Price">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStep()">Previous</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStep()">Next</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Additional Preferences -->
+                <div class="form-step" id="step3">
+                    <h4 class="mb-3">What features are you looking for?</h4>
+
+                    <!-- Amenities Section -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Amenities & Facilities</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="radio-option" onclick="selectFeature('parking')">
+                                    <input type="checkbox" name="features" value="parking" id="parking">
+                                    <label for="parking">Parking</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('security')">
+                                    <input type="checkbox" name="features" value="security" id="security">
+                                    <label for="security">Security</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('lift')">
+                                    <input type="checkbox" name="features" value="lift" id="lift">
+                                    <label for="lift">Lift/Elevator</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('power_backup')">
+                                    <input type="checkbox" name="features" value="power_backup" id="power_backup">
+                                    <label for="power_backup">Power Backup</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('water_supply')">
+                                    <input type="checkbox" name="features" value="water_supply" id="water_supply">
+                                    <label for="water_supply">24/7 Water Supply</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="radio-option" onclick="selectFeature('balcony')">
+                                    <input type="checkbox" name="features" value="balcony" id="balcony">
+                                    <label for="balcony">Balcony</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('garden')">
+                                    <input type="checkbox" name="features" value="garden" id="garden">
+                                    <label for="garden">Garden</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('swimming_pool')">
+                                    <input type="checkbox" name="features" value="swimming_pool" id="swimming_pool">
+                                    <label for="swimming_pool">Swimming Pool</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('gym')">
+                                    <input type="checkbox" name="features" value="gym" id="gym">
+                                    <label for="gym">Gym</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('furnished')">
+                                    <input type="checkbox" name="features" value="furnished" id="furnished">
+                                    <label for="furnished">Furnished</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Property Preferences Section -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Property Preferences</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="radio-option" onclick="selectFeature('near_metro')">
+                                    <input type="checkbox" name="features" value="near_metro" id="near_metro">
+                                    <label for="near_metro">Near Metro Station</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('main_road')">
+                                    <input type="checkbox" name="features" value="main_road" id="main_road">
+                                    <label for="main_road">Main Road Facing</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('east_facing')">
+                                    <input type="checkbox" name="features" value="east_facing" id="east_facing">
+                                    <label for="east_facing">East Facing</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('ready_to_move')">
+                                    <input type="checkbox" name="features" value="ready_to_move" id="ready_to_move">
+                                    <label for="ready_to_move">Ready to Move</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="radio-option" onclick="selectFeature('near_mall')">
+                                    <input type="checkbox" name="features" value="near_mall" id="near_mall">
+                                    <label for="near_mall">Near Shopping Mall</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('near_hospital')">
+                                    <input type="checkbox" name="features" value="near_hospital" id="near_hospital">
+                                    <label for="near_hospital">Near Hospital</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('near_school')">
+                                    <input type="checkbox" name="features" value="near_school" id="near_school">
+                                    <label for="near_school">Near School</label>
+                                </div>
+                                <div class="radio-option" onclick="selectFeature('spacious')">
+                                    <input type="checkbox" name="features" value="spacious" id="spacious">
+                                    <label for="spacious">Spacious</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Any other specific requirements? (optional)</label>
+                        <input type="text" class="form-control" id="description" placeholder="e.g., Looking for a pet-friendly property with modern amenities">
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStep()">Previous</button>
+                        <button type="submit" class="btn btn-success">Find Properties</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Step 4: Create Account -->
+            <div class="form-step" id="step4">
+                <h4 class="mb-3">Create Your Account</h4>
+                <p class="mb-4">Join us to get personalized property recommendations</p>
+                
+                <div class="alert alert-info mb-4" role="alert">
+                    <h6 class="alert-heading">📱📧 Recommendations Delivery</h6>
+                    <p class="mb-0">Your property recommendations will be sent to both your WhatsApp and email address automatically!</p>
+                </div>
+
+                <form id="accountForm">
+                    <div class="mb-3">
+                        <label for="firstName" class="form-label">First Name *</label>
+                        <input type="text" class="form-control" id="firstName" required>
+                        <div class="invalid-feedback">First Name is required.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="lastName" class="form-label">Last Name *</label>
+                        <input type="text" class="form-control" id="lastName" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone Number *</label>
+                        <input type="tel" class="form-control" id="phone" placeholder="e.g., 9876543210" pattern="[0-9]{10}" maxlength="10" required>
+                        <div class="form-text">Enter 10-digit mobile number without spaces or special characters</div>
+                        <div class="invalid-feedback">Please enter a valid 10-digit mobile number.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password *</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Your Property Preferences</h5>
+                        <p><strong>Property Types:</strong> <span id="prefPropertyTypes"></span></p>
+                        <p><strong>Budget:</strong> <span id="prefBudget"></span></p>
+                        <p><strong>Features:</strong> <span id="prefFeatures"></span></p>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="termsCheck" required>
+                        <label class="form-check-label" for="termsCheck">
+                            I agree to the Terms of Service and Privacy Policy
+                        </label>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStep()">Previous</button>
+                        <button type="submit" class="btn btn-success">Create Account & Find Properties</button>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <button type="button" class="btn btn-link" onclick="skipAccountCreation()">Skip for now - Continue as Guest</button>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <p>Already have an account? <a href="#" onclick="showSignIn()">Sign in here</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="recommendations" class="row">
+            <!-- Properties will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let isLoading = false;
+        let currentRequest = null;
+        let retryCount = 0;
+        let maxRetries = 3;
+        let formData = {
+            property_type: [],
+            price_range: [],
+            features: [],
+            description: ''
+        };
+
+        function selectCheckbox(name, value) {
+            const checkbox = event.target.querySelector('input[type="checkbox"]');
+            const option = event.target.closest('.radio-option');
+
+            // Toggle the checkbox
+            checkbox.checked = !checkbox.checked;
+
+            // Update visual state
+            if (checkbox.checked) {
+                option.classList.add('selected');
+            } else {
+                option.classList.remove('selected');
+            }
+
+            // Update form data
+            updateFormData();
+        }
+
+        function selectPriceRangeCheckbox(range) {
+            const checkbox = event.target.querySelector('input[type="checkbox"]');
+            const option = event.target.closest('.radio-option');
+
+            // Toggle the checkbox
+            checkbox.checked = !checkbox.checked;
+
+            // Update visual state
+            if (checkbox.checked) {
+                option.classList.add('selected');
+                if (range === 'custom') {
+                    document.getElementById('customPriceInputs').style.display = 'block';
+                }
+            } else {
+                option.classList.remove('selected');
+                if (range === 'custom') {
+                    document.getElementById('customPriceInputs').style.display = 'none';
+                }
+            }
+
+            // Update form data
+            updateFormData();
+        }
+
+        function selectFeature(feature) {
+            const checkbox = event.target.querySelector('input[type="checkbox"]');
+            const option = event.target.closest('.radio-option');
+
+            // Toggle the checkbox
+            checkbox.checked = !checkbox.checked;
+
+            // Update visual state
+            if (checkbox.checked) {
+                option.classList.add('selected');
+            } else {
+                option.classList.remove('selected');
+            }
+
+            // Update form data
+            updateFormData();
+        }
+
+        function selectCustomPrice() {
+            const checkbox = event.target.querySelector('input[type="checkbox"]');
+            const option = event.target.closest('.radio-option');
+
+            // Toggle the checkbox
+            checkbox.checked = !checkbox.checked;
+
+            // Update visual state
+            if (checkbox.checked) {
+                option.classList.add('selected');
+                document.getElementById('customPriceInputs').style.display = 'block';
+            } else {
+                option.classList.remove('selected');
+                document.getElementById('customPriceInputs').style.display = 'none';
+            }
+
+            // Update form data
+            updateFormData();
+        }
+
+        function updateFormData() {
+            // Update property types
+            const selectedPropertyTypes = [];
+            document.querySelectorAll('input[name="propertyType"]:checked').forEach(checkbox => {
+                if (checkbox.value !== '') {
+                    selectedPropertyTypes.push(checkbox.value);
+                }
+            });
+            formData.property_type = selectedPropertyTypes.length > 0 ? selectedPropertyTypes : null;
+
+            // Update price ranges
+            const selectedPriceRanges = [];
+            document.querySelectorAll('input[name="priceRange"]:checked').forEach(checkbox => {
+                if (checkbox.value !== 'custom') {
+                    selectedPriceRanges.push(checkbox.value);
+                }
+            });
+            formData.price_range = selectedPriceRanges.length > 0 ? selectedPriceRanges : null;
+
+            // Update features
+            const selectedFeatures = [];
+            document.querySelectorAll('input[name="features"]:checked').forEach(checkbox => {
+                selectedFeatures.push(checkbox.value);
+            });
+            formData.features = selectedFeatures.length > 0 ? selectedFeatures : null;
+        }
+
+        function nextStep() {
+            if (currentStep < 4) {
+                currentStep++;
+                updateStepDisplay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepDisplay();
+            }
+        }
+
+        function updateStepDisplay() {
+            // Hide all steps
+            document.querySelectorAll('.form-step').forEach(step => {
+                step.classList.remove('active');
+            });
+
+            // Show current step
+            document.getElementById(`step${currentStep}`).classList.add('active');
+
+            // Update step indicators
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 < currentStep) {
+                    step.classList.add('completed');
+                } else if (index + 1 === currentStep) {
+                    step.classList.add('active');
+                }
+            });
+        }
+
+        function skipAccountCreation() {
+            // Skip account creation and show recommendations
+            displayRecommendations(recommendations);
+        }
+
+        function showSignIn() {
+            alert("Redirect to sign-in page (not implemented in this demo)");
+        }
+
+        document.getElementById('propertyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (isLoading) {
+                return;
+            }
+
+            // Cancel any ongoing request
+            if (currentRequest) {
+                currentRequest.abort();
+            }
+
+            isLoading = true;
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = retryCount > 0 ?
+                `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Retrying... (${retryCount}/${maxRetries})` :
+                '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            // Get final form data
+            const description = document.getElementById('description').value;
+            formData.description = description;
+
+            // Build comprehensive description including features
+            let fullDescription = description;
+            if (formData.features && formData.features.length > 0) {
+                const featureDescriptions = {
+                    'parking': 'with parking',
+                    'security': 'with security',
+                    'lift': 'with lift/elevator',
+                    'power_backup': 'with power backup',
+                    'water_supply': 'with 24/7 water supply',
+                    'balcony': 'with balcony',
+                    'garden': 'with garden',
+                    'swimming_pool': 'with swimming pool',
+                    'gym': 'with gym',
+                    'furnished': 'furnished',
+                    'near_metro': 'near metro station',
+                    'main_road': 'main road facing',
+                    'east_facing': 'east facing',
+                    'ready_to_move': 'ready to move',
+                    'near_mall': 'near shopping mall',
+                    'near_hospital': 'near hospital',
+                    'near_school': 'near school',
+                    'spacious': 'spacious'
+                };
+
+                const selectedFeatureDescriptions = formData.features.map(feature =>
+                    featureDescriptions[feature] || feature
+                );
+
+                if (fullDescription) {
+                    fullDescription += ' ' + selectedFeatureDescriptions.join(', ');
+                } else {
+                    fullDescription = selectedFeatureDescriptions.join(', ');
+                }
+            }
+
+            // Update the description with features
+            formData.description = fullDescription;
+
+            // Handle custom price range
+            const customPriceChecked = document.querySelector('input[name="priceRange"][value="custom"]').checked;
+            if (customPriceChecked) {
+                const minPrice = document.getElementById('minPrice').value;
+                const maxPrice = document.getElementById('maxPrice').value;
+                const customRange = [
+                    minPrice ? parseFloat(minPrice) : 0,
+                    maxPrice ? parseFloat(maxPrice) : Number.MAX_SAFE_INTEGER
+                ];
+                if (formData.price_range) {
+                    formData.price_range.push(customRange);
+                } else {
+                    formData.price_range = [customRange];
+                }
+            }
+
+            // Convert price ranges to actual ranges for API
+            if (formData.price_range && Array.isArray(formData.price_range)) {
+                const convertedRanges = [];
+                formData.price_range.forEach(range => {
+                    if (typeof range === 'string') {
+                        const [min, max] = range.split('-');
+                        if (max === '+') {
+                            convertedRanges.push([parseFloat(min), null]); // Use null for unlimited upper bound
+                        } else {
+                            convertedRanges.push([parseFloat(min), parseFloat(max)]);
+                        }
+                    } else if (Array.isArray(range)) {
+                        convertedRanges.push(range);
+                    }
+                });
+                formData.price_range = convertedRanges.length > 0 ? convertedRanges : null;
+            }
+
+            // Validate that at least one input is provided
+            if (!formData.property_type && !formData.price_range && !formData.description) {
+                alert('Please provide at least one search criteria');
+                isLoading = false;
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Find Properties';
+                return;
+            }
+
+            try {
+                const controller = new AbortController();
+                currentRequest = controller;
+
+                const response = await fetch('/get_recommendations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData),
+                    signal: controller.signal
+                });
+
+                // Handle server busy response
+                if (response.status === 503) {
+                    const errorData = await response.json();
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+                        console.log(`Server busy, retrying in ${delay}ms (attempt ${retryCount}/${maxRetries})`);
+                        setTimeout(() => {
+                            document.getElementById('propertyForm').dispatchEvent(new Event('submit'));
+                        }, delay);
+                        return;
+                    } else {
+                        alert('Server is currently busy. Please try again in a few minutes.');
+                        return;
+                    }
+                }
+
+                const recommendations = await response.json();
+
+                if (recommendations.error) {
+                    alert(recommendations.error);
+                    return;
+                }
+
+                // Show account creation step
+                currentStep = 4;
+                updateStepDisplay();
+
+                // Populate preferences in the account creation form
+                document.getElementById('prefPropertyTypes').textContent = formData.property_type ? formData.property_type.join(', ') : 'Any';
+                document.getElementById('prefBudget').textContent = formData.price_range ? formData.price_range.map(range => `₹${range[0]} - ${range[1] ? `₹${range[1]}` : 'Above'}`).join(', ') : 'Any';
+                document.getElementById('prefFeatures').textContent = formData.features ? formData.features.join(', ') : 'None';
+
+                // Add phone number input formatting
+                document.getElementById('phone').addEventListener('input', function(e) {
+                    // Remove any non-digit characters
+                    let value = e.target.value.replace(/\D/g, '');
+                    // Limit to 10 digits
+                    if (value.length > 10) {
+                        value = value.substring(0, 10);
+                    }
+                    e.target.value = value;
+                });
+
+                // Handle account form submission
+                document.getElementById('accountForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const firstName = document.getElementById('firstName').value;
+                    const lastName = document.getElementById('lastName').value;
+                    const email = document.getElementById('email').value;
+                    let phone = document.getElementById('phone').value;
+                    const password = document.getElementById('password').value;
+
+                    // Clean phone number (remove any remaining non-digits)
+                    phone = phone.replace(/\D/g, '');
+                    
+                    // Validate phone number
+                    if (phone.length !== 10) {
+                        alert('Please enter a valid 10-digit mobile number.');
+                        return;
+                    }
+
+                    // Send account details and search criteria to the backend
+                    const accountResponse = await fetch('/create_account_and_send_whatsapp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            firstName,
+                            lastName,
+                            email,
+                            phone,
+                            password,
+                            description: formData.description,
+                            price_range: formData.price_range,
+                            property_type: formData.property_type
+                        })
+                    });
+
+                    const result = await accountResponse.json();
+
+                    if (result.success) {
+                        // Show dynamic success message based on what was sent
+                        let successMessage = 'Account created successfully! ';
+                        if (result.details) {
+                            const whatsappSent = result.details.some(detail => detail.includes('WhatsApp message sent successfully'));
+                            const emailSent = result.details.some(detail => detail.includes('Email sent successfully'));
+                            
+                            if (whatsappSent && emailSent) {
+                                successMessage += 'Recommendations sent to your WhatsApp and email!';
+                            } else if (whatsappSent) {
+                                successMessage += 'Recommendations sent to your WhatsApp!';
+                            } else if (emailSent) {
+                                successMessage += 'Recommendations sent to your email!';
+                            } else {
+                                successMessage += 'Account created but there were issues sending messages.';
+                            }
+                        } else {
+                            successMessage += result.message || 'Recommendations sent!';
+                        }
+                        alert(successMessage);
+                        // Display the recommendations that were generated by the backend
+                        if (result.recommendations) {
+                            displayRecommendations(result.recommendations);
+                        } else {
+                            displayRecommendations(recommendations);
+                        }
+                    } else {
+                        // Show detailed error information
+                        let errorMessage = 'Failed to create account: ' + (result.error || result.message);
+                        if (result.details && result.details.length > 0) {
+                            errorMessage += '\n\nDetails:\n' + result.details.join('\n');
+                        }
+                        alert(errorMessage);
+                    }
+                });
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.log('Request was aborted');
+                } else {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching recommendations');
+                }
+            } finally {
+                isLoading = false;
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Find Properties';
+                currentRequest = null;
+                retryCount = 0; // Reset retry count on completion
+            }
+        });
+
+        function displayRecommendations(recommendations) {
+            const container = document.getElementById('recommendations');
+            container.innerHTML = '';
+            if (!recommendations || recommendations.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            No properties found matching your criteria. Please try different search parameters.
+                        </div>
+                    </div>
+                `;
+                container.classList.add('visible');
+                return;
+            }
+
+            recommendations.forEach(property => {
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-lg-4';
+
+                const price = new Intl.NumberFormat('en-IN', {
+                    style: 'currency',
+                    currency: 'INR',
+                    maximumFractionDigits: 0
+                }).format(property.marketValue || 0);
+
+                // Create amenities HTML with proper null checks
+                const features = property.features || [];
+                const amenitiesHTML = features.map(feature => `
+                    <div class="amenity-item">
+                        <span class="feature feature-yes">
+                            ${feature}
+                        </span>
+                    </div>
+                `).join('');
+
+                // Add additional features from description
+                const description = property.description || '';
+                const additionalFeatures = {
+                    'Balcony': description.toLowerCase().includes('balcony') ? 'Yes' : 'No',
+                    'Parking': description.toLowerCase().includes('parking') ? 'Yes' : 'No',
+                    'Security': description.toLowerCase().includes('security') ? 'Yes' : 'No',
+                    'Garden': description.toLowerCase().includes('garden') ? 'Yes' : 'No',
+                    'Swimming Pool': description.toLowerCase().includes('swimming pool') ? 'Yes' : 'No',
+                    'Gym': description.toLowerCase().includes('gym') ? 'Yes' : 'No',
+                    'Power Backup': description.toLowerCase().includes('power backup') ? 'Yes' : 'No',
+                    'Water Supply': description.toLowerCase().includes('water supply') ? 'Yes' : 'No'
+                };
+
+                const additionalFeaturesHTML = Object.entries(additionalFeatures)
+                    .map(([key, value]) => `
+                        <div class="amenity-item">
+                            <span class="feature ${value === 'Yes' ? 'feature-yes' : 'feature-no'}">
+                                ${key}: ${value}
+                            </span>
+                        </div>
+                    `).join('');
+
+                card.innerHTML = `
+                    <div class="property-card">
+                        <img src="${(property.propertyImages && property.propertyImages[0]) || 'https://via.placeholder.com/400x300'}"
+                             class="property-image"
+                             alt="${property.propertyName || 'Property'}"
+                             loading="lazy">
+                        <div class="property-details">
+                            <h3>${property.propertyName || 'Unnamed Property'}</h3>
+                            <p class="property-price">${price}</p>
+
+                            <div class="property-features">
+                                <span class="feature">${property.beds || 0} Beds</span>
+                                <span class="feature">${property.baths || 0} Baths</span>
+                                <span class="feature">${property.totalSquareFeet || 0} sq.ft</span>
+                                <span class="feature">${property.numberOfRooms || 0} Rooms</span>
+                            </div>
+
+                            <div class="property-description">
+                                ${property.description || 'No description available'}
+                            </div>
+
+                            <div class="property-amenities">
+                                <h4>Amenities</h4>
+                                <div class="amenity-grid">
+                                    ${amenitiesHTML}
+                                    ${additionalFeaturesHTML}
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <strong>Location:</strong> ${property.address || 'Location not specified'}
+                            </div>
+
+                            <div class="mt-3">
+                                <strong>Type:</strong> ${property.typeName || 'Type not specified'}
+                            </div>
+
+                            <div class="mt-3">
+                                <strong>Year Built:</strong> ${property.yearBuilt || 'Year not specified'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            container.classList.add('visible');
+        }
+    </script>
+</body>
+</html>

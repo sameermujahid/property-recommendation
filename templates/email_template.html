@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Recommendations - HiveProp</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            line-height: 1.6;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #2c5aa0;
+            background: linear-gradient(135deg, #2c5aa0, #1e3a8a);
+            color: white;
+            border-radius: 8px 8px 0 0;
+            margin: -20px -20px 20px -20px;
+        }}
+        .logo {{
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+        .tagline {{
+            font-size: 14px;
+            opacity: 0.9;
+        }}
+        .greeting {{
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+        }}
+        .content {{
+            margin: 20px 0;
+        }}
+        .intro-text {{
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2c5aa0;
+            margin-bottom: 20px;
+        }}
+        .property {{
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .property h3 {{
+            margin-top: 0;
+            color: #2c5aa0;
+            font-size: 20px;
+        }}
+        .property-info {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }}
+        .info-badge {{
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }}
+        .property p {{
+            margin: 8px 0;
+            color: #666;
+        }}
+        .btn {{
+            display: inline-block;
+            background: #2c5aa0;
+            color: #fff;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }}
+        .btn:hover {{
+            background: #1e3a8a;
+        }}
+        .footer {{
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #666;
+            background: #f8f9fa;
+            margin: 20px -20px -20px -20px;
+            border-radius: 0 0 8px 8px;
+        }}
+        .footer a {{
+            color: #2c5aa0;
+            text-decoration: none;
+        }}
+        .social-links {{
+            margin: 15px 0;
+        }}
+        .social-links a {{
+            display: inline-block;
+            margin: 0 10px;
+            color: #2c5aa0;
+            text-decoration: none;
+        }}
+        .no-properties {{
+            text-align: center;
+            padding: 40px 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            color: #856404;
+        }}
+        .no-properties h3 {{
+            color: #856404;
+            margin-top: 0;
+        }}
+        @media (max-width: 600px) {{
+            .container {{
+                margin: 10px;
+                padding: 15px;
+            }}
+            .header {{
+                margin: -15px -15px 15px -15px;
+                padding: 15px;
+            }}
+            .property {{
+                padding: 15px;
+            }}
+            .footer {{
+                margin: 15px -15px -15px -15px;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏡 HiveProp</div>
+            <div class="tagline">Real Estate Platform</div>
+            <div class="tagline">Where Luxury Meets Lifestyle</div>
+        </div>
+        
+        <div class="greeting">
+            Hello {first_name} {last_name}! 👋
+        </div>
+        
+        <div class="content">
+            <div class="intro-text">
+                <p><strong>Welcome to HiveProp!</strong> 🎉</p>
+                <p>Thank you for creating your account. We've found some amazing property recommendations just for you based on your preferences.</p>
+            </div>
+
+            {properties_html}
+
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>🔎 Looking for more options?</strong></p>
+                <p>Explore all our listings and find your perfect property at <a href="https://hiveprop.com" style="color: #2c5aa0; font-weight: bold;">hiveprop.com</a></p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="social-links">
+                <a href="https://hiveprop.com">Website</a>
+                <a href="mailto:support@hiveprop.com">Support</a>
+                <a href="https://hiveprop.com/contact">Contact Us</a>
+            </div>
+            <p>© 2025 HiveProp Real Estate Platform. All rights reserved.</p>
+            <p>This email was sent to {email}. <a href="#">Unsubscribe</a></p>
+        </div>
+    </div>
+</body>
+</html>
