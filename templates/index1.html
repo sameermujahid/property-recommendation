@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Platform</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ─── Design Tokens ─── */
+:root {
+  --beige-50:  #faf8f5;
+  --beige-100: #f4f0ea;
+  --beige-200: #e8e0d4;
+  --beige-300: #d6c9b8;
+  --beige-400: #b8a898;
+  --sand:      #c4a882;
+  --sand-dark: #9c7e5e;
+  --ink:       #000000;
+  --ink-light: #6b5e52;
+  --ink-muted: #9c8f85;
+  --white:     #ffffff;
+  --success:   #7a9e7e;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-soft: 0 2px 16px rgba(45,38,32,0.07);
+  --shadow-card: 0 4px 24px rgba(45,38,32,0.09);
+  --transition: 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--beige-50);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Subtle grain texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Navbar ─── */
+.navbar {
+  background: var(--white) !important;
+  border-bottom: 1px solid var(--beige-200);
+  padding: 0.9rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: slideDown 0.5s ease both;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+.navbar-brand {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.35rem;
+  color: var(--ink) !important;
+  letter-spacing: -0.01em;
+  cursor: default;
+}
+
+.navbar-brand span {
+  color: var(--sand-dark);
+}
+
+.btn-nav-ghost {
+  background: transparent;
+  border: 1.5px solid var(--beige-200);
+  color: var(--ink-light);
+  padding: 0.45rem 1.1rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: var(--transition);
+  cursor: pointer;
+}
+.btn-nav-ghost:hover {
+  border-color: var(--sand);
+  color: var(--ink);
+  background: var(--beige-100);
+}
+.btn-nav-ghost.active-tab {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--white);
+}
+
+/* ─── Page wrapper ─── */
+.page-wrapper {
+  position: relative;
+  z-index: 1;
+  padding: 2rem 0 4rem;
+}
+
+/* ─── Section header ─── */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.75rem;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+.section-header h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.7rem;
+  color: var(--ink);
+  font-weight: 400;
+}
+.section-header span {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+/* ─── Property Card ─── */
+.property-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--beige-100);
+  transition: transform var(--transition), box-shadow var(--transition);
+  animation: fadeUp 0.5s ease both;
+}
+.property-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(45,38,32,0.13);
+}
+
+.property-image {
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s ease;
+}
+.property-card:hover .property-image {
+  transform: scale(1.03);
+}
+
+.property-image-wrap {
+  overflow: hidden;
+  position: relative;
+}
+.property-image-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 50px;
+  background: linear-gradient(transparent, rgba(255,255,255,0.3));
+}
+
+.property-details {
+  padding: 1.1rem 1.25rem 1.3rem;
+}
+
+.property-details h5 {
+  font-family: 'DM Serif Display', serif;
+  font-weight: 400;
+  font-size: 1.05rem;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+  line-height: 1.3;
+}
+
+.property-price {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--sand-dark);
+  margin-bottom: 0.65rem;
+}
+
+.property-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+.meta-chip {
+  background: var(--beige-100);
+  color: var(--ink-light);
+  padding: 0.18rem 0.65rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.property-location {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.property-location svg { flex-shrink: 0; }
+
+/* ─── Form Container ─── */
+.form-container {
+  max-width: 560px;
+  margin: 0 auto 2rem;
+  background: var(--white);
+  padding: 2.5rem 2.5rem 2rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--beige-100);
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+
+.form-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  text-align: center;
+  color: var(--ink);
+  margin-bottom: 0.4rem;
+}
+.form-subtitle {
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+/* ─── Step Indicator ─── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 2.25rem;
+}
+.step {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--beige-100);
+  border: 2px solid var(--beige-200);
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+}
+.step.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--white);
+  box-shadow: 0 0 0 4px rgba(45,38,32,0.1);
+}
+.step.completed {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--white);
+}
+.step-line {
+  width: 40px;
+  height: 2px;
+  background: var(--beige-200);
+  transition: var(--transition);
+}
+.step-line.completed {
+  background: var(--success);
+}
+
+/* ─── Form Step ─── */
+.form-step { display: none; }
+.form-step.active {
+  display: block;
+  animation: fadeIn 0.3s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.form-step h4 {
+  font-family: 'DM Serif Display', serif;
+  font-weight: 400;
+  font-size: 1.2rem;
+  color: var(--ink);
+  margin-bottom: 1.25rem;
+}
+
+/* ─── Radio / Checkbox Option ─── */
+.radio-option {
+  background: var(--beige-50);
+  border: 1.5px solid var(--beige-200);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.65rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.radio-option:hover {
+  border-color: var(--sand);
+  background: var(--beige-100);
+}
+.radio-option.selected {
+  border-color: var(--sand-dark);
+  background: #fdf6ee;
+}
+.radio-option input[type="radio"],
+.radio-option input[type="checkbox"] {
+  accent-color: var(--sand-dark);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.radio-option label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+/* ─── Inputs ─── */
+.form-control, .form-select {
+  background: var(--beige-50);
+  border: 1.5px solid var(--beige-200);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  padding: 0.65rem 0.9rem;
+  transition: var(--transition);
+}
+.form-control:focus, .form-select:focus {
+  background: var(--white);
+  border-color: var(--sand);
+  box-shadow: 0 0 0 3px rgba(196,168,130,0.18);
+  outline: none;
+  color: var(--ink);
+}
+.form-control::placeholder { color: var(--ink-muted); }
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink-light);
+  margin-bottom: 0.4rem;
+}
+
+.input-group-text {
+  background: var(--beige-100);
+  border: 1.5px solid var(--beige-200);
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+/* ─── Buttons ─── */
+.btn-primary-beige {
+  background: var(--ink);
+  color: var(--white);
+  border: none;
+  border-radius: 50px;
+  padding: 0.65rem 1.6rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.01em;
+}
+.btn-primary-beige:hover {
+  background: #1a1210;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(45,38,32,0.2);
+}
+.btn-secondary-beige {
+  background: transparent;
+  color: var(--ink-light);
+  border: 1.5px solid var(--beige-200);
+  border-radius: 50px;
+  padding: 0.65rem 1.6rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-secondary-beige:hover {
+  border-color: var(--sand);
+  color: var(--ink);
+  background: var(--beige-100);
+}
+.btn-secondary-beige:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.btn-success-beige {
+  background: var(--sand-dark);
+  color: var(--white);
+  border: none;
+  border-radius: 50px;
+  padding: 0.65rem 1.6rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-success-beige:hover {
+  background: #7a6248;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(156,126,94,0.28);
+}
+.btn-link-beige {
+  background: none;
+  border: none;
+  color: var(--sand-dark);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-group-form {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-top: 1.75rem;
+}
+.btn-group-form button { flex: 1; }
+
+/* ─── Refresh button ─── */
+.btn-refresh {
+  background: var(--beige-100);
+  border: 1.5px solid var(--beige-200);
+  border-radius: 50px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--ink-light);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-refresh:hover {
+  background: var(--beige-200);
+  color: var(--ink);
+}
+
+/* ─── Alert info ─── */
+.alert-beige {
+  background: #fdf6ee;
+  border: 1.5px solid #eaddc8;
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  color: var(--ink-light);
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+}
+.alert-beige strong { color: var(--ink); }
+
+/* ─── Amenity / feature chips ─── */
+.property-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.feature {
+  background: var(--beige-100);
+  color: var(--ink-light);
+  padding: 0.2rem 0.65rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.feature-yes { background: #eef4ee; color: var(--success); }
+
+.property-description {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  margin-bottom: 0.8rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.property-amenities h4 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-light);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+}
+.amenity-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.amenity-item .feature { display: inline-block; }
+
+/* ─── Price range custom ─── */
+.price-range-inputs {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+.price-range-inputs .form-control { flex: 1; }
+
+/* ─── Preferences summary ─── */
+.pref-summary {
+  background: var(--beige-50);
+  border: 1.5px solid var(--beige-200);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+}
+.pref-summary p { margin-bottom: 0.3rem; color: var(--ink-light); }
+.pref-summary strong { color: var(--ink); font-weight: 500; }
+
+/* ─── Form check ─── */
+.form-check-input {
+  accent-color: var(--sand-dark);
+}
+.form-check-label {
+  font-size: 0.85rem;
+  color: var(--ink-light);
+}
+
+/* ─── Loading spinner ─── */
+.spinner-border-sm { border-color: var(--beige-200); border-top-color: var(--white); }
+
+/* ─── Empty / alert states ─── */
+.alert-info-beige {
+  background: var(--beige-100);
+  border: 1.5px solid var(--beige-200);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  color: var(--ink-light);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.col-md-6, .col-lg-4 {
+  animation: fadeUp 0.5s ease both;
+}
+/* stagger cards */
+.col-md-6:nth-child(2), .col-lg-4:nth-child(2) { animation-delay: 0.08s; }
+.col-md-6:nth-child(3), .col-lg-4:nth-child(3) { animation-delay: 0.16s; }
+.col-md-6:nth-child(4), .col-lg-4:nth-child(4) { animation-delay: 0.24s; }
+.col-md-6:nth-child(5), .col-lg-4:nth-child(5) { animation-delay: 0.32s; }
+.col-md-6:nth-child(6), .col-lg-4:nth-child(6) { animation-delay: 0.4s; }
+
+.hidden { display: none; }
+</style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand">Property <span>AI</span></a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+
+        <!-- 🔍 Search Bar -->
+        <div style="position:relative; width:280px;">
+          <input type="text"
+                 id="globalSearch"
+                 class="form-control"
+                 placeholder="Search location, type, features..."
+                 autocomplete="off">
+      
+          <!-- Live Suggestions Dropdown -->
+          <div id="searchSuggestions"
+               style="position:absolute;
+                      top:100%;
+                      left:0;
+                      right:0;
+                      background:white;
+                      border:1px solid #eee;
+                      border-radius:10px;
+                      box-shadow:0 6px 20px rgba(0,0,0,0.08);
+                      z-index:999;
+                      display:none;
+                      max-height:250px;
+                      overflow-y:auto;">
+          </div>
+        </div>
+      
+        <button class="btn-nav-ghost active-tab" id="btn-all" onclick="showAllProperties()">Browse</button>
+        <button class="btn-nav-ghost" id="btn-rec" onclick="showRecommendations()">Find for me</button>
+      </div>
+        </div>
+</nav>
+
+<div class="container page-wrapper">
+
+<!-- ALL PROPERTIES SECTION -->
+<div id="allPropertiesSection">
+    <div class="section-header">
+      <h2>All properties</h2>
+      <button class="btn-refresh" onclick="loadAllProperties()">↻ Refresh</button>
+    </div>
+    <div id="all-properties" class="row g-3"></div>
+</div>
+
+<!-- RECOMMENDATION SECTION -->
+<div id="recommendationSection" class="hidden">
+    <div class="container">
+        <div class="form-container">
+            <h2 class="form-title">Find your place</h2>
+            <p class="form-subtitle">Answer a few questions and we'll match you.</p>
+
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step active" id="step1-indicator">1</div>
+                <div class="step-line" id="line1"></div>
+                <div class="step" id="step2-indicator">2</div>
+                <div class="step-line" id="line2"></div>
+                <div class="step" id="step3-indicator">3</div>
+                <div class="step-line" id="line3"></div>
+                <div class="step" id="step4-indicator">4</div>
+            </div>
+
+            <form id="propertyForm">
+                <!-- Step 1 -->
+                <div class="form-step active" id="step1">
+                    <h4>What type of property?</h4>
+                    <div class="radio-group">
+                        {% if property_types %}
+                            {% for ptype in property_types %}
+                            <div class="radio-option" onclick="selectCheckbox('propertyType', '{{ ptype }}')">
+                                <input type="checkbox" name="propertyType" value="{{ ptype }}" id="ptype-{{ loop.index }}">
+                                <label for="ptype-{{ loop.index }}">{{ ptype }}</label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert-info-beige">No property types found in the database.</div>
+                        {% endif %}
+                        <div class="radio-option" onclick="selectCheckbox('propertyType', '')">
+                            <input type="checkbox" name="propertyType" value="" id="any">
+                            <label for="any">Any type</label>
+                        </div>
+                    </div>
+                    <div class="btn-group-form">
+                        <button type="button" class="btn-secondary-beige" disabled>Previous</button>
+                        <button type="button" class="btn-primary-beige" onclick="nextStep()">Next →</button>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="form-step" id="step2">
+                    <h4>What's your budget?</h4>
+                    <div class="radio-group">
+                        {% for r in price_ranges %}
+                        <div class="radio-option" onclick="selectPriceRangeCheckbox('{{ r.min }}-{{ r.max }}')">
+                            <input type="checkbox" name="priceRange" value="{{ r.min }}-{{ r.max }}" id="range{{ loop.index }}">
+                            <label for="range{{ loop.index }}">{{ r.label }}</label>
+                        </div>
+                        {% endfor %}
+                        <div class="radio-option" onclick="selectCustomPrice()">
+                            <input type="checkbox" name="priceRange" value="custom" id="custom">
+                            <label for="custom">Custom range</label>
+                        </div>
+                    </div>
+
+                    <div id="customPriceInputs" style="display:none; margin-top:0.75rem;">
+                        <div class="price-range-inputs">
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" class="form-control" id="minPrice" placeholder="Min">
+                            </div>
+                            <span style="color:var(--ink-muted); font-size:0.85rem;">to</span>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" class="form-control" id="maxPrice" placeholder="Max">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="btn-group-form">
+                        <button type="button" class="btn-secondary-beige" onclick="prevStep()">← Back</button>
+                        <button type="button" class="btn-primary-beige" onclick="nextStep()">Next →</button>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="form-step" id="step3">
+                    <h4>Features you'd love</h4>
+
+                    <div class="mb-4">
+                        <div class="row g-2">
+                            {% if amenities %}
+                                {% for amenity in amenities %}
+                                <div class="col-md-6">
+                                    <div class="radio-option" onclick="selectFeature('{{ amenity }}')">
+                                        <input type="checkbox" name="features" value="{{ amenity }}" id="feature-{{ loop.index }}">
+                                        <label for="feature-{{ loop.index }}">{{ amenity }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="col-12">
+                                    <div class="alert-info-beige">No amenities defined in the database.</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Anything else? <span style="color:var(--ink-muted); font-weight:400;">(optional)</span></label>
+                        <input type="text" class="form-control" id="description" placeholder="e.g. pet-friendly, modern kitchen, near schools…">
+                    </div>
+
+                    <div class="btn-group-form">
+                        <button type="button" class="btn-secondary-beige" onclick="prevStep()">← Back</button>
+                        <button type="submit" class="btn-success-beige">Find Properties</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Step 4: Create Account -->
+            <div class="form-step" id="step4">
+                <h4>One last step</h4>
+                <p style="color:var(--ink-muted); font-size:0.9rem; margin-bottom:1.25rem;">
+                    We’ll send your matched properties directly to your email.
+                    </p>
+                    <div class="alert-beige" role="alert">
+                        <strong>📩 Recommendations are ready!</strong> Enter your details below and we’ll email them to you.
+                    </div>
+                    
+
+                <form id="accountForm">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label for="firstName" class="form-label">First name *</label>
+                            <input type="text" class="form-control" id="firstName" required>
+                        </div>
+                        <div class="col-6">
+                            <label for="lastName" class="form-label">Last name *</label>
+                            <input type="text" class="form-control" id="lastName" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        <label for="email" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+
+
+                    <div class="pref-summary">
+                        <p><strong>Property types:</strong> <span id="prefPropertyTypes" style="color:var(--ink)"></span></p>
+                        <p><strong>Budget:</strong> <span id="prefBudget" style="color:var(--ink)"></span></p>
+                        <p style="margin-bottom:0;"><strong>Features:</strong> <span id="prefFeatures" style="color:var(--ink)"></span></p>
+                    </div>
+
+                   
+
+                    <div class="btn-group-form">
+                        <button type="button" class="btn-secondary-beige" onclick="prevStep()">← Back</button>
+                        <button type="submit" class="btn-success-beige">Send Recommendations</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <div id="recommendations" class="row g-3"></div>
+    </div>
+</div>
+
+</div>
+
+<script>
+let allPropertiesCache = [];
+
+let currentStep = 1;
+let isLoading = false;
+let currentRequest = null;
+let retryCount = 0;
+let maxRetries = 3;
+let formData = {
+    property_type: [],
+    price_range: [],
+    features: [],
+    description: ''
+};
+
+function selectCheckbox(name, value) {
+    const checkbox = event.target.querySelector('input[type="checkbox"]');
+    const option = event.target.closest('.radio-option');
+    checkbox.checked = !checkbox.checked;
+    option.classList.toggle('selected', checkbox.checked);
+    updateFormData();
+}
+
+function selectPriceRangeCheckbox(range) {
+    const checkbox = event.target.querySelector('input[type="checkbox"]');
+    const option = event.target.closest('.radio-option');
+    checkbox.checked = !checkbox.checked;
+    option.classList.toggle('selected', checkbox.checked);
+    if (range === 'custom') {
+        document.getElementById('customPriceInputs').style.display = checkbox.checked ? 'block' : 'none';
+    }
+    updateFormData();
+}
+
+function selectFeature(feature) {
+    const checkbox = event.target.querySelector('input[type="checkbox"]');
+    const option = event.target.closest('.radio-option');
+    checkbox.checked = !checkbox.checked;
+    option.classList.toggle('selected', checkbox.checked);
+    updateFormData();
+}
+
+function selectCustomPrice() {
+    const checkbox = event.target.querySelector('input[type="checkbox"]');
+    const option = event.target.closest('.radio-option');
+    checkbox.checked = !checkbox.checked;
+    option.classList.toggle('selected', checkbox.checked);
+    document.getElementById('customPriceInputs').style.display = checkbox.checked ? 'block' : 'none';
+    updateFormData();
+}
+
+function updateFormData() {
+    const selectedPropertyTypes = [];
+    document.querySelectorAll('input[name="propertyType"]:checked').forEach(cb => {
+        if (cb.value !== '') selectedPropertyTypes.push(cb.value);
+    });
+    formData.property_type = selectedPropertyTypes.length > 0 ? selectedPropertyTypes : null;
+
+    const selectedPriceRanges = [];
+    document.querySelectorAll('input[name="priceRange"]:checked').forEach(cb => {
+        if (cb.value !== 'custom') selectedPriceRanges.push(cb.value);
+    });
+    formData.price_range = selectedPriceRanges.length > 0 ? selectedPriceRanges : null;
+
+    const selectedFeatures = [];
+    document.querySelectorAll('input[name="features"]:checked').forEach(cb => {
+        selectedFeatures.push(cb.value);
+    });
+    formData.features = selectedFeatures.length > 0 ? selectedFeatures : null;
+}
+
+function nextStep() {
+    if (currentStep < 4) { currentStep++; updateStepDisplay(); }
+}
+function prevStep() {
+    if (currentStep > 1) { currentStep--; updateStepDisplay(); }
+}
+
+function updateStepDisplay() {
+    document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step${currentStep}`).classList.add('active');
+
+    document.querySelectorAll('.step').forEach((step, i) => {
+        step.classList.remove('active', 'completed');
+        if (i + 1 < currentStep) step.classList.add('completed');
+        else if (i + 1 === currentStep) step.classList.add('active');
+    });
+    // Update connecting lines
+    for (let i = 1; i <= 3; i++) {
+        const line = document.getElementById(`line${i}`);
+        if (line) line.classList.toggle('completed', i < currentStep);
+    }
+}
+
+function skipAccountCreation() {
+    displayRecommendations(latestRecommendations);
+}
+
+function showSignIn() {
+    alert("Redirect to sign-in page (not implemented in this demo)");
+}
+
+document.getElementById('propertyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (isLoading) return;
+    if (currentRequest) currentRequest.abort();
+
+    isLoading = true;
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = retryCount > 0
+        ? `<span class="spinner-border spinner-border-sm"></span> Retrying…`
+        : `<span class="spinner-border spinner-border-sm"></span> Searching…`;
+
+    const description = document.getElementById('description').value;
+    formData.description = description;
+    let fullDescription = description;
+    if (formData.features && formData.features.length > 0) {
+        fullDescription = fullDescription ? fullDescription + ' ' + formData.features.join(', ') : formData.features.join(', ');
+    }
+    formData.description = fullDescription;
+
+    const customPriceChecked = document.querySelector('input[name="priceRange"][value="custom"]').checked;
+    if (customPriceChecked) {
+        const minPrice = document.getElementById('minPrice').value;
+        const maxPrice = document.getElementById('maxPrice').value;
+        const customRange = [minPrice ? parseFloat(minPrice) : 0, maxPrice ? parseFloat(maxPrice) : Number.MAX_SAFE_INTEGER];
+        if (formData.price_range) formData.price_range.push(customRange);
+        else formData.price_range = [customRange];
+    }
+
+    if (formData.price_range && Array.isArray(formData.price_range)) {
+        const convertedRanges = [];
+        formData.price_range.forEach(range => {
+            if (typeof range === 'string') {
+                const [min, max] = range.split('-');
+                convertedRanges.push(max === '+' ? [parseFloat(min), null] : [parseFloat(min), parseFloat(max)]);
+            } else if (Array.isArray(range)) {
+                convertedRanges.push(range);
+            }
+        });
+        formData.price_range = convertedRanges.length > 0 ? convertedRanges : null;
+    }
+
+    try {
+        const controller = new AbortController();
+        currentRequest = controller;
+
+        const response = await fetch('/get_recommendations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+            signal: controller.signal
+        });
+
+        if (response.status === 503) {
+            if (retryCount < maxRetries) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount) * 1000;
+                setTimeout(() => document.getElementById('propertyForm').dispatchEvent(new Event('submit')), delay);
+                return;
+            } else {
+                alert('Server is currently busy. Please try again in a few minutes.');
+                return;
+            }
+        }
+
+        latestRecommendations = await response.json();
+        if (latestRecommendations.error) { alert(latestRecommendations.error); return; }
+        displayRecommendations(latestRecommendations);
+
+        currentStep = 4;
+        updateStepDisplay();
+
+        document.getElementById('prefPropertyTypes').textContent = formData.property_type ? formData.property_type.join(', ') : 'Any';
+        document.getElementById('prefBudget').textContent = formData.price_range ? formData.price_range.map(r => `₹${r[0]} – ${r[1] ? '₹'+r[1] : 'Above'}`).join(', ') : 'Any';
+        document.getElementById('prefFeatures').textContent = formData.features ? formData.features.join(', ') : 'None';
+
+
+
+// ============================
+// STEP 4 - SEND EMAIL
+// ============================
+
+document.getElementById('accountForm').addEventListener('submit', async function(e) {
+
+e.preventDefault();  // 🚨 prevent refresh
+
+const firstName = document.getElementById('firstName').value;
+const lastName  = document.getElementById('lastName').value;
+const email     = document.getElementById('email').value;
+
+if (!firstName || !email) {
+    alert("Please fill required fields.");
+    return;
+}
+
+try {
+
+    const response = await fetch('/send_recommendations_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            firstName,
+            lastName,
+            email,
+            recommendations: latestRecommendations
+        })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        alert("📩 Recommendations sent successfully to your email!");
+    } else {
+        alert("Failed to send email: " + result.message);
+    }
+
+} catch (error) {
+    console.error(error);
+    alert("Something went wrong while sending email.");
+}
+
+});
+} catch (error) {
+        if (error.name !== 'AbortError') {
+            console.error('Error:', error);
+            alert('An error occurred while fetching recommendations');
+        }
+    } finally {
+        isLoading = false;
+        submitButton.disabled = false;
+        submitButton.innerHTML = 'Find Properties';
+        currentRequest = null;
+        retryCount = 0;
+    }
+});
+
+function displayRecommendations(recommendations) {
+    const container = document.getElementById('recommendations');
+    container.innerHTML = '';
+    if (!recommendations || recommendations.length === 0) {
+        container.innerHTML = `<div class="col-12"><div class="alert-info-beige">No properties found matching your criteria. Try different parameters.</div></div>`;
+        return;
+    }
+    recommendations.forEach(property => {
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4';
+        const price = new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(property.marketValue || 0);
+        const features = property.features || [];
+        const amenitiesHTML = features.map(f => `<div class="amenity-item"><span class="feature feature-yes">${f}</span></div>`).join('');
+        const mainImage = (property.propertyImages && property.propertyImages.length > 0 && property.propertyImages[0].imageUrl)
+            ? property.propertyImages[0].imageUrl : 'https://via.placeholder.com/400x300/f4f0ea/9c8f85?text=Property';
+
+        card.innerHTML = `
+            <div class="property-card">
+                <div class="property-image-wrap">
+                    <img src="${mainImage}" class="property-image" alt="${property.propertyName || 'Property'}" loading="lazy">
+                </div>
+                <div class="property-details">
+                    <h5>${property.propertyName || 'Unnamed Property'}</h5>
+                    <p class="property-price">${price}</p>
+                    <div class="property-meta">
+                        <span class="meta-chip">${property.beds || 0} Beds</span>
+                        <span class="meta-chip">${property.baths || 0} Baths</span>
+                        <span class="meta-chip">${property.totalSquareFeet || 0} sq.ft</span>
+                        <span class="meta-chip">${property.numberOfRooms || 0} Rooms</span>
+                    </div>
+                    <div class="property-description">${property.description || ''}</div>
+                    ${amenitiesHTML ? `<div class="property-amenities"><h4>Amenities</h4><div class="amenity-grid">${amenitiesHTML}</div></div>` : ''}
+                    <div class="property-location" style="margin-top:0.75rem;">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1a3.5 3.5 0 0 1 3.5 3.5C9.5 7.5 6 11 6 11S2.5 7.5 2.5 4.5A3.5 3.5 0 0 1 6 1z" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="4.5" r="1" stroke="currentColor" stroke-width="1.2"/></svg>
+                        ${property.address || 'Location not specified'}
+                    </div>
+                    <div style="font-size:0.78rem; color:var(--ink-muted); margin-top:0.3rem;">${property.typeName || ''} ${property.yearBuilt ? '· Built ' + property.yearBuilt : ''}</div>
+                </div>
+            </div>`;
+        container.appendChild(card);
+    });
+}
+
+let latestRecommendations = [];
+
+function showAllProperties() {
+    document.getElementById('allPropertiesSection').classList.remove('hidden');
+    document.getElementById('recommendationSection').classList.add('hidden');
+    document.getElementById('btn-all').classList.add('active-tab');
+    document.getElementById('btn-rec').classList.remove('active-tab');
+}
+
+function showRecommendations() {
+    document.getElementById('allPropertiesSection').classList.add('hidden');
+    document.getElementById('recommendationSection').classList.remove('hidden');
+    document.getElementById('btn-rec').classList.add('active-tab');
+    document.getElementById('btn-all').classList.remove('active-tab');
+}
+
+async function loadAllProperties() {
+
+const container = document.getElementById('all-properties');
+container.innerHTML = `<div class="col-12">
+    <div class="alert-info-beige">Loading properties…</div>
+</div>`;
+
+const res = await fetch('/all_properties');
+const data = await res.json();
+
+allPropertiesCache = data;   // 🔥 CACHE HERE
+
+renderProperties(container, data);
+}
+
+
+function renderProperties(container, properties) {
+    container.innerHTML = '';
+    if (!properties || properties.length === 0) {
+        container.innerHTML = `<div class="col-12"><div class="alert-info-beige">No properties found.</div></div>`;
+        return;
+    }
+    properties.forEach(property => {
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4';
+        const price = new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(property.marketValue || 0);
+        const mainImage = (property.propertyImages && property.propertyImages.length > 0 && property.propertyImages[0].imageUrl)
+            ? property.propertyImages[0].imageUrl : 'https://via.placeholder.com/400x300/f4f0ea/9c8f85?text=Property';
+
+        card.innerHTML = `
+        <div class="property-card">
+            <div class="property-image-wrap">
+                <img src="${mainImage}" class="property-image" loading="lazy">
+            </div>
+            <div class="property-details">
+                <h5>${property.propertyName || 'Unnamed'}</h5>
+                <p class="property-price">${price}</p>
+                <div class="property-meta">
+                    <span class="meta-chip">${property.beds || 0} Beds</span>
+                    <span class="meta-chip">${property.baths || 0} Baths</span>
+                    <span class="meta-chip">${property.totalSquareFeet || 0} sq.ft</span>
+                </div>
+                <div class="property-location">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1a3.5 3.5 0 0 1 3.5 3.5C9.5 7.5 6 11 6 11S2.5 7.5 2.5 4.5A3.5 3.5 0 0 1 6 1z" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="4.5" r="1" stroke="currentColor" stroke-width="1.2"/></svg>
+                    ${property.address || 'N/A'}
+                </div>
+                <div style="font-size:0.78rem; color:var(--ink-muted); margin-top:0.3rem;">${property.typeName || ''}</div>
+            </div>
+        </div>`;
+        container.appendChild(card);
+    });
+}
+const searchInput = document.getElementById("globalSearch");
+const suggestionsBox = document.getElementById("searchSuggestions");
+
+let searchTimeout = null;
+
+searchInput.addEventListener("input", function() {
+
+const query = this.value.trim().toLowerCase();
+
+if (query.length < 2) {
+    suggestionsBox.style.display = "none";
+    return;
+}
+
+// 🔥 INSTANT FILTER (NO API CALL)
+const results = allPropertiesCache.filter(p => {
+
+    const textBlob = (
+        (p.propertyName || '') + ' ' +
+        (p.address || '') + ' ' +
+        (p.typeName || '') + ' ' +
+        (p.description || '') + ' ' +
+        (p.features ? p.features.join(' ') : '')
+    ).toLowerCase();
+
+    return textBlob.includes(query);
+}).slice(0, 6);  // limit to 6 suggestions
+
+suggestionsBox.innerHTML = "";
+
+if (results.length === 0) {
+    suggestionsBox.style.display = "none";
+    return;
+}
+
+results.forEach(property => {
+
+    const item = document.createElement("div");
+    item.style.padding = "10px 14px";
+    item.style.cursor = "pointer";
+    item.style.borderBottom = "1px solid #f1f1f1";
+
+    item.innerHTML = `
+        <strong>${property.propertyName}</strong><br>
+        <small style="color:#888">${property.address}</small>
+    `;
+
+    item.onclick = () => {
+        performSearch(property.propertyName);
+        suggestionsBox.style.display = "none";  // 🔥 FIX
+    };
+
+    suggestionsBox.appendChild(item);
+});
+
+suggestionsBox.style.display = "block";
+});
+
+
+// Press Enter → Go to search page
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+
+        e.preventDefault(); // 🔥 prevent form submit refresh
+
+        suggestionsBox.style.display = "none"; // 🔥 close dropdown
+
+        performSearch(this.value.trim());
+    }
+});
+async function performSearch(query) {
+
+if (!query || query.length < 2) return;
+
+suggestionsBox.style.display = "none";
+
+// Switch to browse section
+showAllProperties();
+
+const container = document.getElementById('all-properties');
+container.innerHTML = `<div class="col-12">
+    <div class="alert-info-beige">Searching for "${query}"...</div>
+</div>`;
+
+try {
+
+    const res = await fetch("/search?q=" + encodeURIComponent(query));
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert-info-beige">
+                    No properties found for "${query}".
+                </div>
+            </div>`;
+        return;
+    }
+
+    renderProperties(container, data);
+
+} catch (error) {
+    console.error(error);
+    container.innerHTML = `
+        <div class="col-12">
+            <div class="alert-info-beige">
+                Error performing search.
+            </div>
+        </div>`;
+}
+}
+
+
+document.addEventListener('DOMContentLoaded', loadAllProperties);
+</script>
+
+</body>
+</html>

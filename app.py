@@ -20,6 +20,12 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import psutil
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from flask import request, jsonify
 
 TARGET_PROPERTIES = 20  # Maximum number of properties to return
 
@@ -67,6 +73,8 @@ try:
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     raise
+# PostgreSQL configuration
+DB_CONFIG = "postgresql://neondb_owner:npg_76laiVosQFHx@ep-sparkling-voice-ai150vc2-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # Configuration
 TOTAL_PROPERTIES = 500  # Total number of properties to fetch
@@ -110,7 +118,96 @@ background_tasks = {}
 task_lock = threading.Lock()
 is_fetching_properties = False
 fetch_lock = threading.Lock()
+def _parse_features(key_features):
+    """Parse key_features from DB - supports JSON array or plain text"""
+    if not key_features:
+        return []
+    try:
+        parsed = json.loads(key_features)
+        return parsed if isinstance(parsed, list) else [str(parsed)]
+    except (json.JSONDecodeError, TypeError):
+        return [f.strip() for f in str(key_features).split(',') if f.strip()]
+def _row_to_property_dict(row, images):
+    """Convert PostgreSQL row to the format expected by the app (camelCase)"""
+    return {
+        'id': str(row['property_id']),
+        'propertyName': row['property_name'] or '',
+        'typeName': row['property_type'] or '',
+        'description': row['description'] or '',
+        'address': row['address'] or '',
+        'totalSquareFeet': float(row['total_square_feet'] or 0),
+        'beds': int(row['beds'] or 0),
+        'baths': int(row['baths'] or 0),
+        'numberOfRooms': int(row['number_of_rooms'] or 0),
+        'marketValue': float(row['market_value'] or 0),
+        'yearBuilt': str(row['year_built'] or ''),
+        'propertyImages': [{'imageUrl': img['image_url']} for img in images],
+        'features': _parse_features(row.get('key_features')),
+        'location': {
+            'city': row.get('city'),
+            'state': row.get('state'),
+            'country': row.get('country'),
+            'latitude': float(row['latitude']) if row.get('latitude') else None,
+            'longitude': float(row['longitude']) if row.get('longitude') else None
+        },
+        'floorPlans': [],
+        'documents': [],
+        'propertyVideos': []
+    }
+def fetch_properties_from_db(property_type=None, min_price=None, max_price=None):
+    """Fetch all properties from PostgreSQL (with optional filters)"""
+    conn = None
+    try:
+        conn = psycopg2.connect(DB_CONFIG)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT p.*, 
+                   COALESCE(
+                       (SELECT json_agg(json_build_object('image_url', pi.image_url) ORDER BY pi.sort_order)
+                        FROM property_images pi 
+                        WHERE pi.property_id = p.property_id),
+                       '[]'::json
+                   ) AS images
+            FROM properties p
+            WHERE p.is_deleted = FALSE
+        """
+        params = []
 
+        # Normalize min_price / max_price: take the first numeric value if lists are passed
+        if isinstance(min_price, list):
+            min_price = next((v for v in min_price if v is not None), None)
+        if isinstance(max_price, list):
+            max_price = next((v for v in max_price if v is not None), None)
+        if property_type:
+            query += " AND p.property_type ILIKE %s"
+            params.append(f"%{property_type}%")
+        if min_price is not None:
+            query += " AND (p.market_value IS NULL OR p.market_value >= %s)"
+            params.append(min_price)
+        if max_price is not None:
+            query += " AND (p.market_value IS NULL OR p.market_value <= %s)"
+            params.append(max_price)
+        
+        query += " ORDER BY p.property_id"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        cursor.close()
+        
+        properties = []
+        for row in rows:
+            images = row['images'] if isinstance(row['images'], list) else (json.loads(row['images']) if row['images'] else [])
+            prop = _row_to_property_dict(dict(row), images)
+            properties.append(prop)
+        
+        return {"data": properties}
+    except Exception as e:
+        logger.error(f"Error fetching from PostgreSQL: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
 def format_time_remaining(seconds):
     """Format remaining time in a human-readable format"""
     if seconds < 60:
@@ -124,107 +221,40 @@ def format_time_remaining(seconds):
         minutes = int((seconds % 3600) / 60)
         return f"{hours} hours {minutes} minutes"
 
-def fetch_property_batch(page_number, property_type=None, min_price=None, max_price=None):
-    """Fetch a single batch of properties without timeout constraints"""
-    url = "backend url"
-    params = {
-        "pageNumber": page_number,
-        "pageSize": BATCH_SIZE
-    }
-    
-    # Add filters to params if provided
-    if property_type:
-        params["propertyType"] = property_type
-    if min_price is not None:
-        params["minPrice"] = min_price
-    if max_price is not None:
-        params["maxPrice"] = max_price
-    
-    try:
-        logger.info(f"Fetching batch {page_number} with {BATCH_SIZE} properties...")
-        response = session.get(url, params=params, verify=False)  # Removed timeout
-        response.raise_for_status()
-        data = response.json()
-        if data and 'data' in data:
-            properties = data['data']
-            if properties:
-                logger.info(f"Successfully fetched {len(properties)} properties from batch {page_number}")
-                return properties
-            else:
-                logger.warning(f"Batch {page_number} returned empty property list")
-                return []
-        logger.warning(f"No data found in batch {page_number} response")
-        return []
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Failed to connect to the API server for batch {page_number}")
-        return []
-    except Exception as e:
-        logger.error(f"Error fetching batch {page_number}: {e}")
-        return []
 
 def fetch_properties_background_safe(property_type=None, min_price=None, max_price=None):
-    """Fetch properties in background with proper error handling and no timeout constraints"""
+    """Fetch properties from PostgreSQL database"""
     global is_fetching_properties
-    
+
     with fetch_lock:
         if is_fetching_properties:
             logger.info("Property fetch already in progress, skipping...")
             return None
         is_fetching_properties = True
-    
+
     try:
-        logger.info(f"🔄 Starting background property fetch with {MAX_WORKERS} workers, batch size {BATCH_SIZE}")
-        
-        # Calculate number of batches needed
-        total_batches = math.ceil(TOTAL_PROPERTIES / BATCH_SIZE)
-        logger.info(f"Total batches to fetch: {total_batches}")
-        
-        all_properties = []
+        logger.info("🔄 Starting background property fetch from PostgreSQL...")
         start_time = time.time()
-        completed_batches = 0
-        
-        # Use ThreadPoolExecutor without timeout for parallel fetching
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            # Submit all batch requests
-            future_to_batch = {
-                executor.submit(fetch_property_batch, page_num, property_type, min_price, max_price): page_num 
-                for page_num in range(1, total_batches + 1)
-            }
-            
-            # Collect results as they complete without timeout
-            for future in as_completed(future_to_batch):  # Removed timeout
-                batch_num = future_to_batch[future]
-                try:
-                    batch_properties = future.result()  # Removed timeout
-                    if batch_properties:
-                        all_properties.extend(batch_properties)
-                        completed_batches += 1
-                        logger.info(f"Completed batch {batch_num}/{total_batches} - Total properties so far: {len(all_properties)}")
-                    else:
-                        logger.warning(f"Batch {batch_num} returned no properties")
-                except Exception as e:
-                    logger.error(f"Batch {batch_num} generated an exception: {e}")
-                    continue  # Continue with other batches
-        
+
+        result = fetch_properties_from_db(property_type=property_type, min_price=min_price, max_price=max_price)
+
         end_time = time.time()
         fetch_duration = end_time - start_time
-        
-        if all_properties:
-            # Limit to total properties requested
-            all_properties = all_properties[:TOTAL_PROPERTIES]
-            logger.info(f"✅ Successfully fetched {len(all_properties)} properties in {fetch_duration:.2f} seconds using {completed_batches}/{total_batches} batches")
+
+        if result and result.get('data'):
+            all_properties = result['data']
+            logger.info(f"✅ Successfully fetched {len(all_properties)} properties from PostgreSQL in {fetch_duration:.2f} seconds")
             return {"data": all_properties}
         else:
             logger.error(f"❌ Failed to fetch any properties after {fetch_duration:.2f} seconds")
             return None
-            
+
     except Exception as e:
         logger.error(f"❌ Error during background property fetch: {str(e)}")
         return None
     finally:
         with fetch_lock:
             is_fetching_properties = False
-
 def fetch_properties(property_type=None, min_price=None, max_price=None):
     """Fetch properties using parallel workers and batches - now calls background version"""
     return fetch_properties_background_safe(property_type, min_price, max_price)
@@ -468,6 +498,32 @@ def update_property_cache(new_properties):
         logger.error(f"Error updating property cache: {str(e)}")
         raise
 
+def is_cache_stale():
+    """Check if cache is stale and needs refresh"""
+    if not os.path.exists(CACHE_TIMESTAMP_PATH):
+        logger.info("No cache timestamp found, cache needs refresh")
+        return True
+    try:
+        with open(CACHE_TIMESTAMP_PATH, 'r') as f:
+            last_time = float(f.read().strip())
+        current_time = time.time()
+        time_diff = current_time - last_time
+        is_stale = time_diff > CACHE_EXPIRY_SECONDS
+        
+        if is_stale:
+            logger.info(f"Cache is stale (older than {format_time_remaining(CACHE_EXPIRY_SECONDS)}). Last update: {datetime.fromtimestamp(last_time)}")
+            logger.info(f"Time since last update: {format_time_remaining(time_diff)}")
+        else:
+            time_remaining = CACHE_EXPIRY_SECONDS - time_diff
+            next_update = datetime.fromtimestamp(current_time + time_remaining)
+            logger.info(f"Cache is fresh. Last update: {datetime.fromtimestamp(last_time)}")
+            logger.info(f"Next update in: {format_time_remaining(time_remaining)}")
+            logger.info(f"Next update scheduled for: {next_update.strftime('%Y-%m-%d %H:%M:%S')}")
+        return is_stale
+    except Exception as e:
+        logger.error(f"Error reading cache timestamp: {e}, cache needs refresh")
+        return True
+
 def initialize_collection():
     global property_collection
     try:
@@ -534,32 +590,6 @@ try:
 except Exception as e:
     logger.error(f"Error initializing ChromaDB: {str(e)}")
     raise
-
-def is_cache_stale():
-    """Check if cache is stale and needs refresh"""
-    if not os.path.exists(CACHE_TIMESTAMP_PATH):
-        logger.info("No cache timestamp found, cache needs refresh")
-        return True
-    try:
-        with open(CACHE_TIMESTAMP_PATH, 'r') as f:
-            last_time = float(f.read().strip())
-        current_time = time.time()
-        time_diff = current_time - last_time
-        is_stale = time_diff > CACHE_EXPIRY_SECONDS
-        
-        if is_stale:
-            logger.info(f"Cache is stale (older than {format_time_remaining(CACHE_EXPIRY_SECONDS)}). Last update: {datetime.fromtimestamp(last_time)}")
-            logger.info(f"Time since last update: {format_time_remaining(time_diff)}")
-        else:
-            time_remaining = CACHE_EXPIRY_SECONDS - time_diff
-            next_update = datetime.fromtimestamp(current_time + time_remaining)
-            logger.info(f"Cache is fresh. Last update: {datetime.fromtimestamp(last_time)}")
-            logger.info(f"Next update in: {format_time_remaining(time_remaining)}")
-            logger.info(f"Next update scheduled for: {next_update.strftime('%Y-%m-%d %H:%M:%S')}")
-        return is_stale
-    except Exception as e:
-        logger.error(f"Error reading cache timestamp: {e}, cache needs refresh")
-        return True
 
 def calculate_property_score(prop, price_range=None, property_type=None, user_input=None):
     """Calculate property score with optimized parallel processing"""
@@ -1013,10 +1043,80 @@ def get_cached_properties(property_type=None, min_price=None, max_price=None):
     except Exception as e:
         logger.error(f"Error getting properties from ChromaDB: {str(e)}")
         return []
-
 @app.route('/')
 def home():
-    return render_template('index.html')
+    try:
+        properties = get_cached_properties()
+
+        # ================================
+        # 🔹 Extract unique property types
+        # ================================
+        property_types = sorted(
+            list({p['typeName'] for p in properties if p.get('typeName')})
+        )
+
+        # ================================
+        # 🔹 Generate CLEAN price ranges
+        # ================================
+        prices = [p['marketValue'] for p in properties if p.get('marketValue')]
+        price_ranges = []
+
+        if prices:
+            min_price = int(min(prices))
+            max_price = int(max(prices))
+
+            # Round nicely (nearest 10 lakh)
+            rounded_min = math.floor(min_price / 1_000_000) * 1_000_000
+            rounded_max = math.ceil(max_price / 1_000_000) * 1_000_000
+
+            if rounded_max <= rounded_min:
+                rounded_max = rounded_min + 1_000_000
+
+            # Create 4 clean buckets
+            step = (rounded_max - rounded_min) // 4
+
+            current = rounded_min
+
+            while current < rounded_max:
+                upper = current + step
+
+                # Round each range nicely (nearest 1 lakh)
+                start_clean = round(current, -5)
+                end_clean = round(upper, -5)
+
+                price_ranges.append({
+                    "label": f"₹{start_clean:,} - ₹{end_clean:,}",
+                    "min": start_clean,
+                    "max": end_clean
+                })
+
+                current = upper
+
+        # ================================
+        # 🔹 Extract unique amenities
+        # ================================
+        amenities = set()
+        for p in properties:
+            for f in p.get('features', []):
+                amenities.add(f)
+
+        amenities = sorted(list(amenities))
+
+        return render_template(
+            'index1.html',
+            property_types=property_types,
+            price_ranges=price_ranges,
+            amenities=amenities
+        )
+
+    except Exception as e:
+        logger.error(f"Error loading home page: {str(e)}")
+        return render_template(
+            'index1.html',
+            property_types=[],
+            price_ranges=[],
+            amenities=[]
+        )
 import base64
 import logging
 from flask import request, jsonify
@@ -1215,167 +1315,61 @@ def send_email_recommendations(email, first_name, last_name, recommendations):
     except Exception as e:
         logger.error(f"Unexpected error sending email: {str(e)}")
         return False, f"Failed to send email: {str(e)}"
+@app.route('/send_recommendations_email', methods=['POST'])
+def send_recommendations_email():
 
-@app.route('/create_account_and_send_whatsapp', methods=['POST'])
-def create_account_and_send_whatsapp():
+    data = request.get_json()
+
+    first_name = data.get("firstName")
+    last_name = data.get("lastName")
+    email = data.get("email")
+    recommendations = data.get("recommendations", [])
+
+    if not email or not first_name:
+        return jsonify({"success": False, "message": "Missing required fields"}), 400
+
     try:
-        data = request.json
+        # Build recommendation HTML
+        properties_html = ""
+        for prop in recommendations:
+            properties_html += f"""
+            <div style="margin-bottom:15px;">
+                <h3>{prop.get('propertyName')}</h3>
+                <p><strong>Price:</strong> ₹{prop.get('marketValue')}</p>
+                <p><strong>Location:</strong> {prop.get('address')}</p>
+                <hr>
+            </div>
+            """
 
-        # Extract user details
-        first_name = data.get('firstName')
-        last_name = data.get('lastName')
-        phone = data.get('phone')
-        email = data.get('email')
-        
-        # Extract search criteria to generate recommendations
-        user_input = data.get('description', '')
-        price_range = data.get('price_range', None)
-        property_type = data.get('property_type', None)
-        
-        logger.info(f"Received data: firstName={first_name}, lastName={last_name}, email={email}, phone={phone}")
-        logger.info(f"Search criteria: description='{user_input}', price_range={price_range}, property_type={property_type}")
-        
-        # Generate recommendations directly in backend
-        logger.info("Generating recommendations in backend...")
-        recommendations = get_recommendations(user_input, price_range, property_type)
-        logger.info(f"Generated {len(recommendations)} recommendations")
+        html_content = f"""
+        <html>
+        <body style="font-family:Arial;">
+            <h2>Hello {first_name},</h2>
+            <p>Here are your matched property recommendations:</p>
+            {properties_html}
+            <br>
+            <p>Thank you for using Property AI.</p>
+        </body>
+        </html>
+        """
 
-        # Validate email format
-        if not email or '@' not in email:
-            logger.error(f"Invalid email format: {email}")
-            return jsonify({"success": False, "error": "Invalid email format. Please provide a valid email address."}), 400
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Your Property Recommendations"
+        msg["From"] = "your_email@gmail.com"
+        msg["To"] = email
 
-        # Clean and format phone number in E.164
-        # Remove all spaces, dashes, and parentheses
-        phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-        
-        # Add +91 if not already present
-        if not phone.startswith('+'):
-            phone = f"+91{phone}"
-        
-        # Validate phone number format (should be +91 followed by 10 digits)
-        if not phone.startswith('+91') or len(phone) != 13 or not phone[3:].isdigit():
-            logger.error(f"Invalid phone number format: {phone}")
-            return jsonify({"success": False, "error": "Invalid phone number format. Please provide a valid 10-digit Indian mobile number."}), 400
+        msg.attach(MIMEText(html_content, "html"))
 
-        # Track success status for both email and WhatsApp
-        whatsapp_success = False
-        email_success = False
-        messages = []
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login("your_email@gmail.com", "your_app_password")
+        server.sendmail(msg["From"], msg["To"], msg.as_string())
+        server.quit()
 
-        # Check if we have any recommendations before sending messages
-        if len(recommendations) == 0:
-            logger.info("No properties found matching criteria, skipping WhatsApp and email messages")
-            messages.append("No properties found matching your criteria. Please try different search parameters.")
-            
-            return jsonify({
-                "success": True, 
-                "message": "Account created successfully! However, no properties were found matching your criteria. Please try different search parameters.",
-                "details": messages,
-                "recommendations": recommendations
-            })
-
-        # Send via WhatsApp
-        try:
-            # Take only the top properties (1 for email, 5 for WhatsApp)
-            whatsapp_recommendations = recommendations[:5]  # WhatsApp can handle more
-            email_recommendations = recommendations[:MAX_PROPERTIES_TO_SEND]  # Email gets 1
-            
-            logger.info(f"Total recommendations received: {len(recommendations)}")
-            logger.info(f"WhatsApp recommendations to send: {len(whatsapp_recommendations)}")
-
-            # Prepare the WhatsApp message with improved design
-            message_header = f"🏡 *Hello {first_name} {last_name}!*\n\nHere are your *top {len(whatsapp_recommendations)} recommended properties* in Hyderabad:\n"
-
-            message_body = ""
-            if not whatsapp_recommendations:
-                message_body = "⚠️ No specific properties found, but you can explore all available properties"
-            else:
-                for idx, prop in enumerate(whatsapp_recommendations, 1):
-                    property_name = prop.get('propertyName', 'Unnamed Property')
-                    property_id = prop.get('id', '')
-                    property_link = f"{PROPERTY_BASE_URL}{property_id}"
-
-                    # Extract location from address or description
-                    address = prop.get('address', '')
-                    location = address.split(',')[-2].strip() if ',' in address else address
-
-                    message_body += f"{idx}️⃣ *{property_name}*\n"
-                    message_body += f"📍 *{location}*\n"
-                    message_body += f"🔗{property_link}\n\n"
-
-            # Add a call-to-action
-            message_footer = "---\n🔎 *Looking for more options?* Explore all listings."
-
-            full_message = message_header + message_body + message_footer
-            
-            logger.info(f"WhatsApp message length: {len(full_message)}")
-
-            # Encode credentials for Basic Auth
-            credentials = f"{TWILIO_ACCOUNT_SID}:{TWILIO_AUTH_TOKEN}"
-            encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
-
-            # Send the message
-            payload = {
-                "To": f"whatsapp:{phone}",
-                "From": TWILIO_WHATSAPP_NUMBER,
-                "Body": full_message
-            }
-
-            headers = {
-                "Authorization": f"Basic {encoded_credentials}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-
-            response = requests.post(
-                f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
-                data=payload,
-                headers=headers
-            )
-            response.raise_for_status()
-
-            logger.info("WhatsApp message sent successfully")
-            whatsapp_success = True
-            messages.append("WhatsApp message sent successfully!")
-            
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"Twilio API error: {e.response.text}")
-            messages.append(f"WhatsApp error: {e.response.text}")
-        except Exception as e:
-            logger.error(f"Unexpected WhatsApp error: {str(e)}")
-            messages.append(f"WhatsApp error: {str(e)}")
-
-        # Send via Email
-        logger.info(f"Sending email to {email} with {len(email_recommendations)} recommendations")
-        email_success, email_message = send_email_recommendations(email, first_name, last_name, email_recommendations)
-        messages.append(email_message)
-
-        # Determine overall success and response message
-        success = whatsapp_success or email_success
-        if whatsapp_success and email_success:
-            overall_message = "Account created! Messages sent via WhatsApp and email!"
-        elif whatsapp_success:
-            overall_message = "Account created! WhatsApp message sent (email failed)"
-        elif email_success:
-            overall_message = "Account created! Email sent (WhatsApp failed)"
-        else:
-            overall_message = "Account created but failed to send messages"
-
-        return jsonify({
-            "success": success, 
-            "message": overall_message,
-            "details": messages,
-            "recommendations": recommendations  # Return generated recommendations
-        })
-
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"Twilio API error: {e.response.text}")
-        return jsonify({"success": False, "error": f"Twilio API error: {e.response.text}"}), 500
+        return jsonify({"success": True, "message": "Email sent successfully!"})
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return jsonify({"success": False, "error": f"Failed to send WhatsApp message: {str(e)}"}), 500
-
+        return jsonify({"success": False, "message": str(e)})
 @app.route('/get_recommendations', methods=['POST'])
 def get_recommendations_route():
     """Get property recommendations with parallel processing optimization and non-blocking property fetch - no timeouts"""
@@ -1555,6 +1549,63 @@ def cache_status_route():
     except Exception as e:
         logger.error(f"Error getting cache status: {str(e)}")
         return jsonify({"error": "Failed to get cache status"})
+@app.route('/all_properties', methods=['GET'])
+def all_properties_route():
+    """Return all properties currently cached in ChromaDB (no filters)."""
+    try:
+        # get_cached_properties() already pulls from ChromaDB and converts metadata
+        properties = get_cached_properties()
+        return jsonify(properties)
+    except Exception as e:
+        logger.error(f"Error fetching all properties: {str(e)}")
+        return jsonify({"error": "Failed to load properties"}), 500
+@app.route("/search_suggestions")
+def search_suggestions():
+    query = request.args.get("q", "").lower()
+
+    properties = get_cached_properties()
+
+    matches = []
+
+    for p in properties:
+        text_blob = " ".join([
+            str(p.get("propertyName", "")),
+            str(p.get("address", "")),
+            str(p.get("typeName", "")),
+            str(p.get("description", "")),
+            " ".join(p.get("features", []))
+        ]).lower()
+
+        if query in text_blob:
+            matches.append({
+                "propertyName": p.get("propertyName"),
+                "address": p.get("address")
+            })
+
+        if len(matches) >= 5:
+            break
+
+    return jsonify(matches)
+@app.route("/search")
+def search():
+    query = request.args.get("q", "").lower()
+    properties = get_cached_properties()
+
+    matched = []
+
+    for p in properties:
+        text_blob = " ".join([
+            str(p.get("propertyName", "")),
+            str(p.get("address", "")),
+            str(p.get("typeName", "")),
+            str(p.get("description", "")),
+            " ".join(p.get("features", []))
+        ]).lower()
+
+        if query in text_blob:
+            matched.append(p)
+
+    return jsonify(matched)
 
 @app.route('/health', methods=['GET'])
 def health_check():
