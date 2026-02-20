@@ -1,211 +1,172 @@
-# AI Powered Property Recommendation System
+# AI-Powered Property Recommendation System
 
-An intelligent, high-performance **Property Recommendation Engine** built using **Flask, SentenceTransformers, ChromaDB, and Parallel Processing**.
+A production-grade, high-performance **Property Recommendation Platform** built using **Flask, PostgreSQL, SentenceTransformers, ChromaDB, and Parallel Processing**.
 
-This system fetches real estate properties from an external API, stores them in a **vector database (ChromaDB)**, and delivers **AI-powered personalized recommendations** using semantic search + scoring algorithms.
+This system fetches real estate properties from a **PostgreSQL database**, stores embeddings inside a **persistent ChromaDB vector database**, and delivers intelligent, AI-powered recommendations using semantic search combined with weighted scoring algorithms.
+
+Designed for **multi-user environments** and deployable on platforms like **Hugging Face Spaces**.
 
 ---
 
-## 🚀 Features
+# Core Capabilities
 
-### 🔥 AI-Powered Semantic Search
+## 1. AI Semantic Search Engine
 
 * Uses `all-MiniLM-L6-v2` from SentenceTransformers
-* Semantic similarity scoring
+* Cosine similarity scoring
 * Context-aware property matching
+* Batch embedding generation for performance
+* Hybrid recommendation logic (semantic + rule-based scoring)
 
-### ⚡ High-Performance Architecture
+---
 
-* Parallel batch processing (ThreadPoolExecutor)
-* Multi-worker embedding generation
-* Optimized property scoring
-* Background cache refresh
-* Connection pooling for API calls
+## 2. PostgreSQL Data Layer
 
-### 🧠 Vector Database
+* Properties stored in PostgreSQL
+* JSON image aggregation via SQL
+* Feature parsing (JSON or comma-separated)
+* Filter support:
 
-* ChromaDB with cosine similarity
-* Persistent storage
-* Automatic cache refresh (24-hour expiry)
+  * Property type
+  * Single or multiple price ranges
+* Uses `psycopg2` with `RealDictCursor`
 
-### 🏗 Multi-User Support
+---
 
-* Concurrent request handling
-* Request tracking & rate limiting
+## 3. Vector Database (ChromaDB)
+
+* Persistent storage at `property_db/`
+* Cosine similarity index (HNSW)
+* Metadata stored alongside embeddings
+* Automatic cache refresh every 24 hours
+* Background refresh (non-blocking)
+
+---
+
+## 4. Multi-User Architecture
+
+Designed for concurrent users:
+
+* Thread-safe request tracking
+* Concurrent request limit protection
+* Connection pooling for external API calls
+* Parallel property processing (ThreadPoolExecutor)
 * Background property fetching
-* Thread-safe operations
-
-### 📧 Account & Recommendation Flow
-
-* Multi-step property preference form
-* Email template system
-* WhatsApp integration (Twilio ready)
-* Guest mode supported
+* Non-blocking refresh logic
+* Health monitoring endpoint
 
 ---
 
-## 🛠 Tech Stack
+# Recommendation Scoring Logic
 
-### Backend
+Each property is scored using weighted factors:
 
-* Flask 
-* Flask-CORS 
-* SentenceTransformers 
-* FAISS 
-* ChromaDB 
-* Scikit-learn 
-* Pandas 
+| Factor                   | Weight    |
+| ------------------------ | --------- |
+| Semantic similarity      | 50%       |
+| Property type match      | 30%       |
+| Price match              | 30%       |
+| Feature detection        | up to 10% |
+| Size bonus (>1000 sq ft) | 5%        |
+| Room bonus (≥3 rooms)    | 5%        |
 
-### Frontend
-
-* Bootstrap 5 
-* Multi-step form UI
-* Dynamic property rendering
-
-### Email Template
-
-* HTML templating for property recommendations 
+Scoring is performed in parallel for high performance.
 
 ---
 
-## 📂 Project Structure
+
+# System Architecture
+
+User → Flask API →
+PostgreSQL (properties) →
+ChromaDB (embeddings + metadata) →
+Parallel scoring engine →
+Top ranked properties returned →
+Optional email delivery via SMTP
+
+---
+
+# Project Structure
 
 ```
-├── app.py                  # Main Flask backend :contentReference[oaicite:9]{index=9}
-├── requirements.txt        # Dependencies :contentReference[oaicite:10]{index=10}
+├── app.py
+├── property_db/              # Persistent ChromaDB storage
 ├── templates/
-│   ├── index.html          # Multi-step property form :contentReference[oaicite:11]{index=11}
-│   └── email_template.html # Email recommendation template :contentReference[oaicite:12]{index=12}
-├── property_db/            # ChromaDB persistent storage
+│   └── index1.html           # Full UI (multi-step form + browse)
+├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## 🧠 How It Works
+# API Endpoints
 
-### 1️⃣ Property Fetching
+## Core Endpoints
 
-* Fetches properties in parallel batches
-* Uses connection pooling
-* Background refresh support
-* Automatic cache timestamp tracking
-
-### 2️⃣ Vector Storage
-
-* Property description → embedding
-* Stored in ChromaDB
-* Metadata stored alongside embeddings
-
-### 3️⃣ Recommendation Engine
-
-Each property is scored using:
-
-* 🔎 Semantic similarity (50%)
-* 🏠 Property type match (30%)
-* 💰 Price range match (30%)
-* 🌟 Feature detection
-* 📐 Size & room bonus scoring
-
-Parallel scoring ensures fast response even with large datasets.
+| Method | Endpoint                      | Description                          |
+| ------ | ----------------------------- | ------------------------------------ |
+| GET    | `/`                           | Home page                            |
+| GET    | `/all_properties`             | Returns all cached properties        |
+| POST   | `/get_recommendations`        | Returns AI-ranked recommendations    |
+| POST   | `/send_recommendations_email` | Sends recommendations via Gmail SMTP |
+| GET    | `/search`                     | Full search                          |
+| GET    | `/search_suggestions`         | Live suggestions                     |
+| POST   | `/refresh_properties`         | Trigger background refresh           |
+| GET    | `/cache_status`               | Cache diagnostics                    |
+| GET    | `/health`                     | System health check                  |
 
 ---
 
-## ⚙️ Installation
+# Performance Optimizations
 
-### 1️⃣ Clone the repository
-
-```bash
-git clone https://github.com/sameermujahid/property-recommendation
-cd property-recommendation
-```
-
-### 2️⃣ Create virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate   # Mac/Linux
-venv\Scripts\activate      # Windows
-```
-
-### 3️⃣ Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-Dependencies are defined in:
-
+* Parallel embedding generation
+* Parallel property filtering
+* Parallel scoring
+* Background cache refresh
+* Persistent vector DB
+* Connection pooling
+* Concurrent request protection
+* CPU-aware worker scaling
+* Hugging Face Spaces compatible (port 7860)
 
 ---
 
-## ▶️ Run the Application
+# Cache Strategy
 
-```bash
+* Properties cached in ChromaDB
+* 24-hour expiry window
+* Background refresh when stale
+* Initial auto-fetch if cache empty
+* Countdown scheduler thread
+* Non-blocking refresh execution
+
+---
+
+# Email System
+
+Two supported methods:
+
+1. External Email API (via `EMAIL_API_URL`)
+2. Gmail SMTP using `smtplib`
+
+Supports:
+
+* HTML formatted property cards
+* Top N property selection
+* Graceful error handling
+* Timeout handling
+* Connection failure detection
+
+---
+
+## Local
+
+```
 python app.py
 ```
 
-Server runs on:
+Runs on:
 
 ```
-http://localhost:5000
+http://localhost:7860
 ```
-
----
-
-## 📊 Performance Optimizations
-
-* ✅ Parallel property fetching
-* ✅ Parallel embedding generation
-* ✅ Parallel scoring
-* ✅ Background cache refresh
-* ✅ Multi-thread safe architecture
-* ✅ Connection pooling
-* ✅ Batch processing
-
----
-
-## 🗄 Cache Strategy
-
-* Properties cached for **24 hours**
-* Automatic background refresh
-* Non-blocking updates
-* Persistent vector storage
-
----
-
-## 🔐 Environment Variables (Recommended)
-
-Instead of hardcoding:
-
-```
-TWILIO_ACCOUNT_SID
-TWILIO_AUTH_TOKEN
-BACKEND_API_URL
-```
-
-Use `.env` file for production security.
-
----
-
-## 📦 API Endpoints (Example)
-
-| Method | Endpoint          | Description                  |
-| ------ | ----------------- | ---------------------------- |
-| GET    | `/`               | Home page                    |
-| POST   | `/recommend`      | Get property recommendations |
-| POST   | `/create-account` | Create user account          |
-
----
-
-## 📈 Future Improvements
-
-* Redis caching layer
-* Async FastAPI migration
-* Docker deployment
-* Kubernetes scaling
-* User history personalization
-* ML-based re-ranking
-* Production logging system
-
----
