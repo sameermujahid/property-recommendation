@@ -74,7 +74,7 @@ except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     raise
 # PostgreSQL configuration
-DB_CONFIG = "postgresql://neondb_owner:npg_76laiVosQFHx@ep-sparkling-voice-ai150vc2-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
+DB_CONFIG = "REPLACE WIHT YOU DB CONFIG"
 
 # Configuration
 TOTAL_PROPERTIES = 500  # Total number of properties to fetch
